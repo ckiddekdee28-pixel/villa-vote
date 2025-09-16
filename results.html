@@ -25,44 +25,56 @@
     </div>
   </main>
 
-  <script>
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz39uGaalhbSHiJRT9Td31FDBs6dSWlHBFI3ao26mme1EhUd_NX2CLM2zoL3zdyDThy9g/exec";
+<script>
+  const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz39uGaalhbSHiJRT9Td31FDBs6dSWlHBFI3ao26mme1EhUd_NX2CLM2zoL3zdyDThy9g/exec";
 
-    async function fetchVotes() {
-      const res = await fetch(APPS_SCRIPT_URL + '?mode=list');
-      const data = await res.json();
-      if (!data.ok) throw new Error(data.error || 'ไม่สามารถโหลดผลโหวต');
-      return data.rows || [];
-    }
+  function keyName(s){ return (s||'').trim().replace(/\s+/g,' ').toLowerCase(); }
+  function uniqueLatestByName(rows){
+    const m = new Map();
+    rows.forEach(r=>{
+      const k = keyName(r.name);
+      const ts = new Date(r.timestamp).getTime()||0;
+      const prev = m.get(k);
+      if(!prev || ts > prev._ts){ m.set(k, {...r, _ts: ts}); }
+    });
+    return [...m.values()];
+  }
 
-    function render(rows) {
-      const count = rows.reduce((acc, r) => {
-        const c = r.choice || '';
-        acc[c] = (acc[c]||0) + 1; return acc;
-      }, {});
-      const total = rows.length;
-      const entries = Object.entries(count).map(([k,v]) => `<div class="flex justify-between py-1"><span>${k}</span><span class="font-semibold">${v} เสียง</span></div>`).join('');
-      document.getElementById('summary').innerHTML = `<div>${entries || 'ยังไม่มีคะแนน'}</div><div class="mt-2 text-slate-500">รวมทั้งหมด ${total} โหวต</div>`;
+  async function fetchVotes(){
+    const res = await fetch(APPS_SCRIPT_URL + '?mode=list');
+    const data = await res.json();
+    return data.rows || [];
+  }
 
-      const list = rows.slice().reverse().slice(0, 20).map(r => `
-        <div class="py-2 border-b last:border-0">
-          <div class="font-medium">${r.name || '(ไม่ระบุชื่อ)'} <span class="text-slate-400 text-xs">• ${new Date(r.timestamp).toLocaleString()}</span></div>
-          <div class="text-xs text-slate-600">เลือก: ${r.choice} • ติดต่อ: ${r.contact||'-'}</div>
-          ${r.note ? `<div class="text-xs text-slate-500">หมายเหตุ: ${r.note}</div>` : ''}
-        </div>
-      `).join('');
-      document.getElementById('list').innerHTML = list || 'ยังไม่มีข้อมูล';
-    }
+  function render(rows){
+    // กรองซ้ำ เหลือล่าสุดต่อชื่อ
+    const latest = uniqueLatestByName(rows);
 
-    (async () => {
-      try {
-        const rows = await fetchVotes();
-        render(rows);
-        setInterval(async () => render(await fetchVotes()), 15000);
-      } catch (e) {
-        document.getElementById('summary').textContent = e.message;
-      }
-    })();
-  </script>
-</body>
-</html>
+    // สรุปคะแนน
+    const count = latest.reduce((a,r)=>{ a[r.choice]=(a[r.choice]||0)+1; return a; }, {});
+    const total = latest.length;
+    const sumHtml = Object.entries(count)
+      .map(([k,v])=>`<div class="flex justify-between py-1"><span>${k}</span><span class="font-semibold">${v} เสียง</span></div>`)
+      .join('') || 'ยังไม่มีคะแนน';
+    document.getElementById('summary').innerHTML = `<div>${sumHtml}</div><div class="mt-2 text-slate-500">รวมทั้งหมด ${total} โหวต</div>`;
+
+    // รายการล่าสุด
+    const list = latest.sort((a,b)=> new Date(b.timestamp)-new Date(a.timestamp))
+      .slice(0,20).map(r=>`
+      <div class="py-2 border-b last:border-0">
+        <div class="font-medium">${r.name||'(ไม่ระบุชื่อ)'} <span class="text-slate-400 text-xs">• ${new Date(r.timestamp).toLocaleString()}</span></div>
+        <div class="text-xs text-slate-600">เลือก: ${r.choice} • ติดต่อ: ${r.contact||'-'}</div>
+        ${r.note?`<div class="text-xs text-slate-500">หมายเหตุ: ${r.note}</div>`:''}
+      </div>`).join('') || 'ยังไม่มีข้อมูล';
+    document.getElementById('list').innerHTML = list;
+  }
+
+  (async ()=>{
+    try{
+      const rows = await fetchVotes();
+      render(rows);
+      setInterval(async ()=>render(await fetchVotes()), 15000);
+    }catch(e){ document.getElementById('summary').textContent = e.message; }
+  })();
+</script>
+
