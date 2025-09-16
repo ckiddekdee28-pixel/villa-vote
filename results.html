@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ผลโหวต (สำหรับผู้จัด)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>body{font-family:'Noto Sans Thai',system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial}</style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+  <main class="max-w-5xl mx-auto px-6 py-10">
+    <h1 class="text-2xl font-extrabold">ผลโหวต (ดึงจากชีต)</h1>
+    <p class="text-sm text-slate-600">หน้านี้ใช้ดูผลแบบสด • ดึงจาก Apps Script Web App</p>
+
+    <div class="mt-6 grid gap-6 md:grid-cols-2">
+      <div class="rounded-2xl bg-white border p-6">
+        <h2 class="font-bold">สรุปคะแนน</h2>
+        <div id="summary" class="mt-3 text-sm"></div>
+      </div>
+      <div class="rounded-2xl bg-white border p-6">
+        <h2 class="font-bold">รายการล่าสุด</h2>
+        <div id="list" class="mt-3 text-sm"></div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz39uGaalhbSHiJRT9Td31FDBs6dSWlHBFI3ao26mme1EhUd_NX2CLM2zoL3zdyDThy9g/exec";
+
+    async function fetchVotes() {
+      const res = await fetch(APPS_SCRIPT_URL + '?mode=list');
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || 'ไม่สามารถโหลดผลโหวต');
+      return data.rows || [];
+    }
+
+    function render(rows) {
+      const count = rows.reduce((acc, r) => {
+        const c = r.choice || '';
+        acc[c] = (acc[c]||0) + 1; return acc;
+      }, {});
+      const total = rows.length;
+      const entries = Object.entries(count).map(([k,v]) => `<div class="flex justify-between py-1"><span>${k}</span><span class="font-semibold">${v} เสียง</span></div>`).join('');
+      document.getElementById('summary').innerHTML = `<div>${entries || 'ยังไม่มีคะแนน'}</div><div class="mt-2 text-slate-500">รวมทั้งหมด ${total} โหวต</div>`;
+
+      const list = rows.slice().reverse().slice(0, 20).map(r => `
+        <div class="py-2 border-b last:border-0">
+          <div class="font-medium">${r.name || '(ไม่ระบุชื่อ)'} <span class="text-slate-400 text-xs">• ${new Date(r.timestamp).toLocaleString()}</span></div>
+          <div class="text-xs text-slate-600">เลือก: ${r.choice} • ติดต่อ: ${r.contact||'-'}</div>
+          ${r.note ? `<div class="text-xs text-slate-500">หมายเหตุ: ${r.note}</div>` : ''}
+        </div>
+      `).join('');
+      document.getElementById('list').innerHTML = list || 'ยังไม่มีข้อมูล';
+    }
+
+    (async () => {
+      try {
+        const rows = await fetchVotes();
+        render(rows);
+        setInterval(async () => render(await fetchVotes()), 15000);
+      } catch (e) {
+        document.getElementById('summary').textContent = e.message;
+      }
+    })();
+  </script>
+</body>
+</html>
