@@ -188,15 +188,13 @@
       };
 
       try {
-        // ส่งแบบ no-cors เพื่อตัด preflight และเลี่ยง CORS error
         await fetch(APPS_SCRIPT_URL, {
           method: 'POST',
-          mode: 'no-cors',                     // สำคัญ
-          headers: { 'Content-Type': 'text/plain' }, // สำคัญ (ไม่ใช้ application/json)
+          mode: 'no-cors',                       <!-- สำคัญ -->
+          headers: { 'Content-Type': 'text/plain' },  <!-- สำคัญ -->
           body: JSON.stringify(data)
         });
-
-        // จะไม่อ่านผลตอบกลับ แต่ถือว่าสำเร็จ
+        // อ่านผลตอบกลับไม่ได้ใน no-cors แต่ถือว่าสำเร็จ
         successBox.classList.remove('hidden');
         form.reset();
       } catch (err) {
@@ -205,6 +203,7 @@
       } finally {
         submitBtn.disabled = false; submitBtn.textContent = 'ส่งโหวต';
       }
+
 
     });
   </script>
